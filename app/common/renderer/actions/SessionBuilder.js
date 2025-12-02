@@ -958,7 +958,7 @@ export function setAddVendorPrefixes(addVendorPrefixes) {
 }
 
 export function initFromQueryString(loadNewSession) {
-  return (dispatch, getState) => {
+  return (dispatch) => {
     if (!isFirstRun) {
       return;
     }
@@ -966,58 +966,27 @@ export function initFromQueryString(loadNewSession) {
     isFirstRun = false;
 
     const url = new URL(window.location.href);
-    const initialState = url.searchParams.get('state');
-    const autoStartSession = url.searchParams.get('autoStart');
     const applicationId = url.searchParams.get('application_id');
     const driverConfigurationId = url.searchParams.get('driver_configuration_id');
 
     if (applicationId && driverConfigurationId) {
-      // Array of caps directly, because addVendorPrefixes expects an array of objects
       const caps = [
         { name: 'datatrue:applicationId', value: parseInt(applicationId, 10), type: 'number', enabled: true },
         { name: 'datatrue:driverConfigurationId', value: parseInt(driverConfigurationId, 10), type: 'number', enabled: true },
       ];
 
-      // shape the server payload as a **new object** (do not reuse references to existing state)
-      const serverPayload = {
+      const server = {
         remote: {
           protocol: 'http',
-          host: import.meta.env.VITE_WEBDRIVER_PROXY_HOST,
-          hostname: import.meta.env.VITE_WEBDRIVER_PROXY_HOST,
+          hostname: import.meta.env.VITE_WEBDRIVER_PROXY_HOSTNAME,
           port: Number(import.meta.env.VITE_WEBDRIVER_PROXY_PORT),
           path: '/',
           ssl: true,
         },
-        advanced: {
-          allowUnauthorized: false,
-          useProxy: false,
-          proxy: '',
-        },
       };
 
-      const serverClone = _.cloneDeep(serverPayload);
+      dispatch({type: SET_SERVER, server, serverType: SERVER_TYPES.REMOTE});
 
-      // Dispatch safely with deep clones
-      dispatch(setCapsAndServer(serverClone, 'remote', caps, null, 'Auto-started Session'));
-
-      // Start session using loadNewSession (already clones internally)
-      loadNewSession(caps);
-    }
-
-    if (initialState) {
-      try {
-        const state = JSON.parse(initialState);
-        dispatch({type: SET_STATE_FROM_URL, state});
-      } catch {
-        showError(new Error('Could not parse initial state from URL'), {secs: 0});
-      }
-    }
-
-    if (autoStartSession === AUTO_START_URL_PARAM) {
-      const {attachSessId, caps} = getState().builder;
-      if (attachSessId) {
-        return loadNewSession(null, attachSessId);
-      }
       loadNewSession(caps);
     }
   };
